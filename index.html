@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Z4C</title>
+  <style>
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: 'Calibri', cursive, sans-serif;
+      background-color: white;
+      color: black;
+      overflow: hidden;
+      transition: background-color 1s linear, color 1s linear;
+      position: relative;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f0f0f0;
+      padding: 1rem 2rem;
+      color: black;
+      font-size: 2rem;
+      font-weight: bold;
+      transition: background-color 1s linear, color 1s linear;
+      z-index: 10;
+    }
+
+    button {
+      font-size: 1rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      background: #222;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #555;
+    }
+
+    #centerpiece {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #ff007f, #7f00ff);
+      animation: bounce 2s infinite ease-in-out;
+      transition: background 1s linear;
+      z-index: 5;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translate(-50%, -50%) translateY(0); }
+      50% { transform: translate(-50%, -50%) translateY(-50px); }
+    }
+
+    /* Laser canvas covers full screen */
+    #laser-canvas {
+      position: fixed;
+      pointer-events: none;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+    }
+
+    #dimmer {
+      pointer-events: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0,0,0,0.95);
+      opacity: 0;
+      z-index: 9998;
+      transition: opacity 0.03s ease-in-out;
+    }
+
+    body.dark-theme {
+      background-color: #121212;
+      color: #e0e0e0;
+    }
+
+    body.dark-theme header {
+      background-color: #1e1e1e;
+      color: #e0e0e0;
+    }
+
+    body.dark-theme button {
+      background: #555;
+      color: #eee;
+    }
+
+    body.dark-theme button:hover {
+      background: #888;
+    }
+
+    body.dark-theme #centerpiece {
+      background: linear-gradient(45deg, #ff55ff, #5500ff);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  Z4C.DEV
+  <button id="party-btn">Party Mode</button>
+</header>
+
+<div id="centerpiece"></div>
+
+<canvas id="laser-canvas"></canvas>
+<div id="dimmer"></div>
+
+<audio id="party-music" loop>
+  <source src="music.mp3" type="audio/mpeg" />
+  Your browser does not support the audio element.
+</audio>
+
+<script>
+  const partyBtn = document.getElementById('party-btn');
+  const body = document.body;
+  const music = document.getElementById('party-music');
+  const laserCanvas = document.getElementById('laser-canvas');
+  const ctx = laserCanvas.getContext('2d');
+  const dimmer = document.getElementById('dimmer');
+
+  let partyOn = false;
+
+  function resizeCanvas() {
+    laserCanvas.width = window.innerWidth;
+    laserCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  class Laser {
+    constructor() {
+      this.reset();
+    }
+    reset() {
+      this.x = Math.random() * laserCanvas.width;
+      this.y = Math.random() * laserCanvas.height;
+      this.length = 100 + Math.random() * 150;
+      this.speed = 5 + Math.random() * 8;
+      this.angle = Math.random() * Math.PI * 2;
+      this.color = `hsl(${Math.floor(Math.random() * 360)}, 100%, 70%)`;
+      this.opacity = 0;
+      this.opacitySpeed = 0.02 + Math.random() * 0.04;
+      this.active = false;
+      this.delay = Math.random() * 3000;
+      this.age = 0;
+    }
+    update() {
+      this.age += 16;
+      if (this.age >= this.delay) this.active = true;
+      if (!this.active) return;
+
+      this.x += Math.cos(this.angle) * this.speed;
+      this.y += Math.sin(this.angle) * this.speed;
+
+      this.opacity += this.opacitySpeed;
+      if (this.opacity > 1 || this.opacity < 0) {
+        this.opacitySpeed *= -1;
+        this.opacity = Math.min(Math.max(this.opacity, 0), 1);
+      }
+
+      if (
+        this.x < -this.length ||
+        this.x > laserCanvas.width + this.length ||
+        this.y < -this.length ||
+        this.y > laserCanvas.height + this.length
+      ) {
+        this.reset();
+      }
+    }
+    draw(ctx) {
+      if (!this.active) return;
+      ctx.save();
+      ctx.strokeStyle = this.color;
+      ctx.globalAlpha = this.opacity;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(
+        this.x - Math.cos(this.angle) * this.length,
+        this.y - Math.sin(this.angle) * this.length
+      );
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  const lasers = [];
+  const laserCount = 60;
+
+  function initLasers() {
+    lasers.length = 0;
+    for (let i = 0; i < laserCount; i++) {
+      lasers.push(new Laser());
+    }
+  }
+
+  function drawLasers() {
+    ctx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+    lasers.forEach(laser => {
+      laser.update();
+      laser.draw(ctx);
+    });
+  }
+
+
+  const bpm = 126;
+  const period = 60 / bpm;
+
+  function getPulseOpacity(elapsed) {
+    const beatPosition = elapsed % period;
+    const flashDuration = period * 0.50;
+    if (beatPosition < flashDuration) {
+      if (beatPosition < flashDuration / 2) {
+        return (beatPosition / (flashDuration / 2)) * 0.9; 
+      } else {
+        return ((flashDuration - beatPosition) / (flashDuration / 2)) * 0.9;
+      }
+    }
+    return 0;
+  }
+
+  function animate(timestamp) {
+    if (!timestamp) timestamp = performance.now();
+    if (partyOn) {
+      drawLasers();
+
+      let elapsed = timestamp / 1000;
+      const opacity = getPulseOpacity(elapsed);
+      dimmer.style.opacity = opacity.toFixed(3);
+
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+      dimmer.style.opacity = 0;
+    }
+  }
+
+  partyBtn.addEventListener('click', () => {
+    partyOn = !partyOn;
+    if (partyOn) {
+      partyBtn.textContent = "Stop Party";
+      music.play();
+      initLasers();
+      body.classList.add('dark-theme');
+      animate();
+    } else {
+      partyBtn.textContent = "Party Mode";
+      music.pause();
+      music.currentTime = 0;
+      ctx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+      body.classList.remove('dark-theme');
+      dimmer.style.opacity = 0;
+    }
+  });
+</script>
+
+</body>
+</html>
