@@ -252,13 +252,13 @@
   partyBtn.addEventListener('click', () => {
     partyOn = !partyOn;
     if (partyOn) {
-      partyBtn.textContent = "Stop Party";
+      partyBtn.textContent = "Stop";
       music.play();
       initLasers();
       body.classList.add('dark-theme');
       animate();
     } else {
-      partyBtn.textContent = "Party Mode";
+      partyBtn.textContent = "Party";
       music.pause();
       music.currentTime = 0;
       ctx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
